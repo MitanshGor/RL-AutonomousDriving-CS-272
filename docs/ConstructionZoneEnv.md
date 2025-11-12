@@ -179,6 +179,8 @@ cp custom_envs/construction_zone_env.py highway_env/envs/
 python -m highway_env.scripts.play --env highway-construction-zone-v0
 ```
 
+**Note:** The `pip install -e .` command above is for installing the HighwayEnv package itself, not this project. This project does not require package installation - simply install dependencies with `pip install -r requirements.txt`.
+
 ### RL Algorithm Setup
 
 **Ready-to-Use Training Scripts:**

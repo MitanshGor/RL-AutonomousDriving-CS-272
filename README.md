@@ -57,7 +57,6 @@ RL-AutonomousDriving-CS-272/
 ├── plots/                 # Generated plots and visualizations (generated)
 ├── results/               # Evaluation results and metrics (generated)
 ├── requirements.txt       # Python dependencies
-├── setup.py               # Package setup
 └── README.md              # This file
 ```
 
@@ -429,7 +428,7 @@ https://github.com/Farama-Foundation/HighwayEnv
 **Team Members:**
 - Mitansh Gor (gormitansh@gmail.com)
 - Henry Ha (henryha4912@gmail.com)
-- John Yun ()
+- John Yun (John.yun2017@gmail.com)
 
 **Course:** CS 272
 
