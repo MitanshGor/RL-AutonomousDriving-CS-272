@@ -37,10 +37,11 @@ import highway_env  # This import registers all highway-env environments with gy
 from .config_loader import ConfigLoader
 
 
-class HighwayEnvRunner:
+class HighwayEnvRunner(gym.Env):
     """
     Wrapper class for HighwayEnv environments.
     Provides a clean interface for RL algorithms without visualization logic.
+    Inherits from gym.Env to be compatible with stable-baselines3.
     """
     
     # Available environments
@@ -140,6 +141,13 @@ class HighwayEnvRunner:
         self.episode_steps = 0
         self.episode_reward = 0.0
         self.total_steps = 0
+        
+        # Expose required gym.Env attributes for stable-baselines3 compatibility
+        self.observation_space = self.env.observation_space
+        self.action_space = self.env.action_space
+        self.metadata = getattr(self.env, 'metadata', {})
+        self.render_mode = render_mode
+        self.spec = getattr(self.env, 'spec', None)
     
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
         """
