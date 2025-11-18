@@ -2,7 +2,7 @@
 
 ## Objective
 
-In this project, you will develop a toy autonomous driving vehicle using deep reinforcement learning (DRL). The goal is to design, train, and evaluate DRL agents capable of decision-making in simulated driving environments. You will use the [highway-env package](https://highway-env.farama.org/), which provides a collection of benchmark environments for autonomous driving tasks based on gymnasium.
+In this project, we will develop a toy autonomous driving vehicle using deep reinforcement learning (DRL). The goal is to design, train, and evaluate DRL agents capable of decision-making in simulated driving environments. We make use of our own custom environment which is the [highway_with_obstacles_env.py] which is added into the existing [highway-env package](https://highway-env.farama.org/) in the highway_env folder. The original framework provides a collection of benchmark environments for autonomous driving tasks based on gymnasium.
 
 **Reference:** https://highway-env.farama.org/
 

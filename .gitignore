@@ -50,6 +50,7 @@ logs/
 *.log.*
 
 # Model checkpoints and data
+highway_dqn/
 models/
 checkpoints/
 data/
