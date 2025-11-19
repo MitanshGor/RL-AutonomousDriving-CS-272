@@ -4,7 +4,7 @@ from stable_baselines3 import DQN
 import json
 from highway_env.envs.highway_with_obstacles_env import HighwayWithObstaclesEnv
 import highway_env 
-TRAIN = False  # Set to False to test trained model, True to train first
+TRAIN = True  # Set to False to test trained model, True to train first
 
 if __name__ == "__main__":
     # Create the environment
@@ -13,11 +13,7 @@ if __name__ == "__main__":
         entry_point='highway_env.envs:HighwayWithObstaclesEnv',
     )
 
-    # load custom environment config settings
-    with open("D:\Documents\GitHub\RL-AutonomousDriving-CS-272\config\env_config.json", "r") as f:
-        env_config = json.load(f)
-
-    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array', config=env_config)
+    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
         "obstacles_count": 4,
@@ -28,6 +24,38 @@ if __name__ == "__main__":
         "construction_zone_side": "random",  # "left", "right", or "random"
         "construction_zone_lanes": 2,  # Number of lanes the zone takes up
         "construction_cone_spacing": 5,  # Distance between cones [m]
+
+        "reward": {
+            "collision_penalty": -1.0,
+            "closed_lane_penalty": -1.0,
+            "progress_reward": {
+            "type": "percentage",
+            "description": "Distance covered as percentage (e.g., 0.73 if 73% covered)"
+            },
+            "speed_compliance": {
+            "within_limit": 0.05,
+            },
+            "speed_violation": {
+            "beyond_limit": -0.05,
+            }
+        },
+
+        "speed": {
+            "construction_zone_limit_mph": 45,
+            "construction_zone_limit_kmh": 72.42,
+            "speed_tolerance_mph": 5,
+            "speed_tolerance_kmh": 8.05,
+            "description": "Must maintain speed within ±5 mph of construction zone limit"
+        },
+
+        "safety_rules": {
+            "collision": {
+            "penalty": -1.0,
+            },
+            "closed_lane": {
+            "penalty": -1.0,
+            }
+        },
     })
     
     print("\n" + "="*60)

@@ -32,6 +32,38 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 "construction_zone_side": "random",  # "left", "right", or "random"
                 "construction_zone_lanes": 2,  # Number of lanes the zone takes up
                 "construction_cone_spacing": 5,  # Distance between cones [m]
+
+                 "reward": {
+                    "collision_penalty": -1.0,
+                    "closed_lane_penalty": -1.0,
+                    "progress_reward": {
+                    "type": "percentage",
+                    "description": "Distance covered as percentage (e.g., 0.73 if 73% covered)"
+                    },
+                    "speed_compliance": {
+                    "within_limit": 0.05,
+                    },
+                    "speed_violation": {
+                    "beyond_limit": -0.05,
+                    }
+                },
+
+                "speed": {
+                    "construction_zone_limit_mph": 45,
+                    "construction_zone_limit_kmh": 72.42,
+                    "speed_tolerance_mph": 5,
+                    "speed_tolerance_kmh": 8.05,
+                    "description": "Must maintain speed within ±5 mph of construction zone limit"
+                },
+
+                "safety_rules": {
+                    "collision": {
+                    "penalty": -1.0,
+                    },
+                    "closed_lane": {
+                    "penalty": -1.0,
+                    }
+                },
             }
         )
         return config
@@ -356,7 +388,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             if self.vehicle.crashed:
                 total_rewards['collision_reward'] = self.config['safety_rules']['collision']['penalty']
 
-            total_rewards['progress_reward'] = round(self.vehicle.lane.local_coordinates(self.vehicle.position) / self.vehicle.lane.length, 2)
+            total_rewards['progress_reward'] = round(self.vehicle.lane.local_coordinates(self.vehicle.position)[0] / self.vehicle.lane.length, 2)
 
         '''forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
         scaled_speed = utils.lmap(
