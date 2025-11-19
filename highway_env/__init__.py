@@ -3,7 +3,6 @@ import sys
 
 from gymnasium.envs.registration import register
 
-
 __version__ = "1.10.2"
 
 try:
@@ -44,7 +43,7 @@ def _register_highway_envs():
     # highway_with_obstacles_env.py
     register(
         id='highway-with-obstacles-v0',
-        entry_point='highway_env.envs:HighwayWithObstaclesEnv',
+        entry_point='highway_env.envs.highway_with_obstacles_env:HighwayWithObstaclesEnv',
     )
 
     # intersection_env.py

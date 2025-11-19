@@ -1,18 +1,11 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 from stable_baselines3 import DQN
-
-import highway_env  
-
-
+from highway_env.envs.highway_with_obstacles_env import HighwayWithObstaclesEnv
+import highway_env 
 TRAIN = False  # Set to False to test trained model, True to train first
 
 if __name__ == "__main__":
-    # Create the environment
-    gym.register(
-        id='highway-with-obstacles-v0',
-        entry_point='highway_env.envs:HighwayWithObstaclesEnv',
-    )
 
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
