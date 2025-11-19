@@ -395,7 +395,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         #neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
 
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
-        if self._is_in_forbidden_construction_zone:
+        if self._is_in_construction_zone:
             forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
             construction_min_speed = self.config['speed']['construction_zone_limit_mph'] - self.config['speed']['speed_tolerance_mph']
             construction_max_speed = self.config['speed']['construction_zone_limit_mph'] + self.config['speed']['speed_tolerance_mph']
