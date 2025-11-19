@@ -1,6 +1,7 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 from stable_baselines3 import DQN
+import json
 
 import highway_env  
 
@@ -14,7 +15,11 @@ if __name__ == "__main__":
         entry_point='highway_env.envs:HighwayWithObstaclesEnv',
     )
 
-    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
+    # load custom environment config settings
+    with open("D:\Documents\GitHub\RL-AutonomousDriving-CS-272\config\env_config.json", "r") as f:
+        env_config = json.load(f)
+
+    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array', config=env_config)
     
     env.unwrapped.config.update({
         "obstacles_count": 4,
