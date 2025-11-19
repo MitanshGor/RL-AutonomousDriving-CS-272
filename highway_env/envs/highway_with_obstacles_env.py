@@ -282,7 +282,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         
         return False
 
-    def _is_in_construction_zone(self, longitudinal_pos: float, lane_idx: int) -> bool:
+    def _is_in_construction_zone(self, longitudinal_pos: float) -> bool:
         """
         Check if a position is inside a construction zone.
         
