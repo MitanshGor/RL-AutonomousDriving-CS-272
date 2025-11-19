@@ -7,26 +7,17 @@ import highway_env
 TRAIN = False  # Set to False to test trained model, True to train first
 
 if __name__ == "__main__":
-    # Create the environment
-    gym.register(
-        id='highway-with-obstacles-v0',
-        entry_point='highway_env.envs:HighwayWithObstaclesEnv',
-    )
 
-    # load custom environment config settings
-    with open("D:\Documents\GitHub\RL-AutonomousDriving-CS-272\config\env_config.json", "r") as f:
-        env_config = json.load(f)
-
-    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array', config=env_config)
+    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
         "obstacles_count": 4,
         "obstacle_spacing": 20,
-        "vehicles_count": 50,  
+        "vehicles_count": 1,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
-        "construction_zone_lanes": 2,  # Number of lanes the zone takes up
+        "construction_zone_lanes": 3,  # Number of lanes the zone takes up
         "construction_cone_spacing": 5,  # Distance between cones [m]
     })
     
