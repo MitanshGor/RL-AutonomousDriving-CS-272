@@ -99,7 +99,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         lane = network.get_lane(lane_index)
         
         ego_start = 100  # Approximate ego spawn position
-        visible_start = ego_start + 50  # Start zones 50m ahead of ego
+        visible_start = ego_start + 300  # Start zones 300m ahead of ego
         usable_length = lane.length - visible_start - 100  # Keep buffer at end
         
         # create each construction zone
@@ -350,7 +350,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 max_attempts = 30
                 for attempt in range(max_attempts):
                     vehicle = other_vehicles_type.create_random(
-                        self.road, spacing=1 / self.config["vehicles_density"]
+                        self.road, spacing=3.0  
                     )
                     
                     # Check if vehicle is in construction zone

@@ -13,11 +13,11 @@ if __name__ == "__main__":
     env.unwrapped.config.update({
         "obstacles_count": 4,
         "obstacle_spacing": 20,
-        "vehicles_count": 1,  
+        "vehicles_count": 20,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
-        "construction_zone_lanes": 3,  # Number of lanes the zone takes up
+        "construction_zone_lanes": 2,  # Number of lanes the zone takes up
         "construction_cone_spacing": 5,  # Distance between cones [m]
     })
     
