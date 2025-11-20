@@ -1,6 +1,8 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 from stable_baselines3 import DQN
+from stable_baselines3 import A2C
+from stable_baselines3.common.env_util import make_vec_env
 import json
 from highway_env.envs.highway_with_obstacles_env import HighwayWithObstaclesEnv
 import highway_env 
@@ -86,13 +88,17 @@ if __name__ == "__main__":
         tensorboard_log="highway_dqn/",
     )
 
+    #vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=4)
+    #model = A2C('MlpPolicy', vec_env, verbose=1)
+
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(2e4))
+        model.learn(total_timesteps=int(2000))
         model.save("highway_dqn/model")
     else:
         # Load existing trained model
         model = DQN.load("highway_dqn/model", env=env)
+
 
     # Run the model and record video
     env = RecordVideo(
@@ -104,7 +110,7 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("Starting video recording...")
     print("="*60)
-    
+    returns = []
     for videos in range(10):
         done = truncated = False
         obs, info = env.reset()
@@ -113,12 +119,16 @@ if __name__ == "__main__":
         print(f"\nEpisode {videos + 1}:")
         print(f"  Vehicles: {len(env.unwrapped.road.vehicles)}")
         print(f"  Total objects (cones+barriers+obstacles): {len(env.unwrapped.road.objects)}")
-        
+        r = 0
         while not (done or truncated):
             # Predict
             action, _states = model.predict(obs, deterministic=True)
             # Get reward
             obs, reward, done, truncated, info = env.step(action)
+            r += reward
             # Render
             env.render()
+        returns.append(r)
+
+    print(returns)
     env.close()

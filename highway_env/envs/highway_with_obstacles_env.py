@@ -355,10 +355,12 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         :return: the corresponding reward
         """
         rewards = self._rewards(action)
+        #print(rewards)
         reward = sum(
-            self.config.get(name, 1) * reward for name, reward in rewards.items()
+            #self.config.get(name, 1) * reward for name, reward in rewards.items()
+            v for k,v in rewards.items()
         )
-        if self.config["normalize_reward"]:
+        '''if self.config["normalize_reward"]:
             reward = utils.lmap(
                 reward,
                 [
@@ -366,7 +368,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                     self.config["high_speed_reward"] + self.config["right_lane_reward"],
                 ],
                 [0, 1],
-            )
+            )'''
         #reward *= rewards["on_road_reward"]
         return reward
 
@@ -375,7 +377,8 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         #neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
 
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
-        if self._is_in_construction_zone:
+        if self._is_in_construction_zone(self.vehicle.lane.local_coordinates(self.vehicle.position)[0], self.vehicle.lane_index):
+            print('in zone')
             forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
             construction_min_speed = self.config['speed']['construction_zone_limit_mph'] - self.config['speed']['speed_tolerance_mph']
             construction_max_speed = self.config['speed']['construction_zone_limit_mph'] + self.config['speed']['speed_tolerance_mph']
@@ -383,17 +386,20 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 total_rewards['speed_compliance'] = self.config['reward']['speed_compliance']['within_limit']
             else:
                 total_rewards['speed_compliance'] = self.config['reward']['speed_violation']['beyond_limit']
+        else:
+            total_rewards['efficiency'] = 0.05
 
-        if self._is_terminated or self._is_truncated:
-            if self.vehicle.crashed:
-                total_rewards['collision_reward'] = self.config['safety_rules']['collision']['penalty']
+        if self._is_terminated() or self._is_truncated():
+            if self._is_terminated():
+                total_rewards['collision_reward'] = -100#self.config['safety_rules']['collision']['penalty']
 
-            total_rewards['progress_reward'] = round(self.vehicle.lane.local_coordinates(self.vehicle.position)[0] / self.vehicle.lane.length, 2)
-
-        '''forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
+            #total_rewards['progress_reward'] = round(self.vehicle.lane.local_coordinates(self.vehicle.position)[0] / self.vehicle.lane.length / 0.05, 2)
+            #print(self.vehicle.position)
+        forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
         scaled_speed = utils.lmap(
             forward_speed, self.config["reward_speed_range"], [0, 1]
-        )'''
+        )
+        total_rewards['high_speed_reward'] = np.clip(scaled_speed, 0, 1)
         '''return {
             "collision_reward": float(self.vehicle.crashed),
             "right_lane_reward": lane / max(len(neighbours) - 1, 1),
