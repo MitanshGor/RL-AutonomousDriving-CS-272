@@ -33,7 +33,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 "construction_zone_lanes": 2,  # Number of lanes the zone takes up
                 "construction_cone_spacing": 5,  # Distance between cones [m]
 
-                 "reward": {
+                "reward": {
                     "collision_penalty": -1.0,
                     "closed_lane_penalty": -1.0,
                     "progress_reward": {
@@ -99,7 +99,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         lane = network.get_lane(lane_index)
         
         ego_start = 100  # Approximate ego spawn position
-        visible_start = ego_start + 50  # Start zones 50m ahead of ego
+        visible_start = ego_start + 300  # Start zones 300m ahead of ego
         usable_length = lane.length - visible_start - 100  # Keep buffer at end
         
         # create each construction zone
@@ -252,9 +252,9 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         
         return True
 
-    def _is_in_construction_zone(self, longitudinal_pos: float, lane_idx: int) -> bool:
+    def _is_in_forbidden_construction_zone(self, longitudinal_pos: float, lane_idx: int) -> bool:
         """
-        Check if a position is inside a construction zone.
+        Check if a position is inside the area that is bounded by construction zone obstacles.
         
         :param longitudinal_pos: longitudinal position along road [m]
         :param lane_idx: lane index (0=rightmost, lanes_count-1=leftmost)
@@ -278,6 +278,26 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 
                 # Check if lane is affected
                 if lane_idx in affected_lanes:
+                    return True
+        
+        return False
+
+    def _is_in_construction_zone(self, longitudinal_pos: float) -> bool:
+        """
+        Check if a position is inside a construction zone.
+        
+        :param longitudinal_pos: longitudinal position along road [m]
+        :param lane_idx: lane index (0=rightmost, lanes_count-1=leftmost)
+        :return: True if position is inside a construction zone
+        """
+        if not hasattr(self, 'construction_zones'):
+            return False
+            
+        buffer = 20  # Additional buffer zone [m] - increased for safety
+        
+        for zone in self.construction_zones:
+            # Check if longitudinal position is within zone (with buffer)
+            if zone['start'] - buffer <= longitudinal_pos <= zone['end'] + buffer:
                     return True
         
         return False
@@ -308,7 +328,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 long_pos = lane.local_coordinates(vehicle.position)[0]
                 lane_idx = vehicle.lane_index[2]
                 
-                in_zone = self._is_in_construction_zone(long_pos, lane_idx)
+                in_zone = self._is_in_forbidden_construction_zone(long_pos, lane_idx)
                 if not in_zone:
                     break  # Valid position found
                 else:
@@ -330,7 +350,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 max_attempts = 30
                 for attempt in range(max_attempts):
                     vehicle = other_vehicles_type.create_random(
-                        self.road, spacing=1 / self.config["vehicles_density"]
+                        self.road, spacing=3.0  
                     )
                     
                     # Check if vehicle is in construction zone
@@ -338,7 +358,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                     long_pos = lane.local_coordinates(vehicle.position)[0]
                     lane_idx = vehicle.lane_index[2]
                     
-                    in_zone = self._is_in_construction_zone(long_pos, lane_idx)
+                    in_zone = self._is_in_forbidden_construction_zone(long_pos, lane_idx)
                     if not in_zone:
                         vehicle.randomize_behavior()
                         self.road.vehicles.append(vehicle)
@@ -388,7 +408,9 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             if self.vehicle.crashed:
                 total_rewards['collision_reward'] = self.config['safety_rules']['collision']['penalty']
 
-            total_rewards['progress_reward'] = round(self.vehicle.lane.local_coordinates(self.vehicle.position)[0] / self.vehicle.lane.length, 2)
+        longitudinal = self.vehicle.lane.local_coordinates(self.vehicle.position)[0]
+        progress = longitudinal / self.vehicle.lane.length
+        total_rewards['progress_reward'] = round(progress, 2)
 
         '''forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
         scaled_speed = utils.lmap(
