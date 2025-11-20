@@ -375,7 +375,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         :return: the corresponding reward
         """
         rewards = self._rewards(action)
-        print(rewards)
+        # print(rewards)
         reward = sum(
             #self.config.get(name, 1) * reward for name, reward in rewards.items()
             v for k,v in rewards.items()
@@ -399,11 +399,11 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
         if self._is_in_construction_zone(self.vehicle.lane.local_coordinates(self.vehicle.position)[0]):
             forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
-            print('\nforward speed:',forward_speed)
+            # print('\nforward speed:',forward_speed)
             construction_min_speed = self.config['speed']['construction_zone_limit_mph'] - self.config['speed']['speed_tolerance_mph']
             construction_max_speed = self.config['speed']['construction_zone_limit_mph'] + self.config['speed']['speed_tolerance_mph']
-            print(construction_max_speed)
-            print(construction_min_speed)
+            # print(construction_max_speed)
+            # print(construction_min_speed)
 
             if forward_speed >= construction_min_speed and forward_speed <= construction_max_speed:
                 total_rewards['speed_compliance'] = 0.25#self.config['reward']['speed_compliance']['within_limit']
@@ -416,7 +416,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             if self.vehicle.crashed:
                 total_rewards['collision_reward'] = -50#self.config['safety_rules']['collision']['penalty']
 
-        if self._is_truncated():
+        elif self._is_truncated():
             total_rewards['end'] = 50
 
         '''if self._is_terminated() or self._is_truncated():

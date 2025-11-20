@@ -24,7 +24,6 @@ class RoadObject(ABC):
 
     LENGTH: float = 2  # Object length [m]
     WIDTH: float = 2  # Object width [m]
-    DIAMETER: float = 2 # Object diameter if it is a circular object (cone) to implement later
 
     def __init__(
         self,

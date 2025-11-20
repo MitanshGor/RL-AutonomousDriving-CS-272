@@ -13,42 +13,14 @@ if __name__ == "__main__":
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
-        "obstacles_count": 10,
+        "obstacles_count": 0,
         "obstacle_spacing": 20,
-        "vehicles_count": 30,  
+        "vehicles_count": 50,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
         "construction_zone_lanes": 2,  # Number of lanes the zone takes up
         "construction_cone_spacing": 5,  # Distance between cones [m]
-
-        "reward": {
-            "collision_penalty": -1.0,
-            "closed_lane_penalty": -1.0,
-            "speed_compliance": {
-            "within_limit": 0.05,
-            },
-            "speed_violation": {
-            "beyond_limit": -0.05,
-            }
-        },
-
-        "speed": {
-            "construction_zone_limit_mph": 25,
-            "construction_zone_limit_kmh": 72.42,
-            "speed_tolerance_mph": 5,
-            "speed_tolerance_kmh": 8.05,
-            "description": "Must maintain speed within ±5 mph of construction zone limit"
-        },
-
-        "safety_rules": {
-            "collision": {
-            "penalty": -1.0,
-            },
-            "closed_lane": {
-            "penalty": -1.0,
-            }
-        },
     })
     
     print("\n" + "="*60)
@@ -63,13 +35,13 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     # Create the model
-    '''model = DQN(
+    model = DQN(
         "MlpPolicy",
         env,
         policy_kwargs=dict(net_arch=[256, 256]),
         learning_rate=5e-4,
         buffer_size=15000,
-        learning_starts=2000,
+        learning_starts=1000,
         batch_size=32,
         gamma=0.9,
         train_freq=1,
@@ -77,23 +49,23 @@ if __name__ == "__main__":
         target_update_interval=50,
         verbose=1,
         tensorboard_log="highway_dqn/",
-    )'''
-
-    vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=8)
-    model = A2C('MlpPolicy', vec_env, verbose=1)
+    )
+    env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
+    # vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=8)
+    # model = A2C('MlpPolicy', vec_env, verbose=1)
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(1500))
-        model.save("highway_a2c/model")
+        model.learn(total_timesteps=int(3000))
+        model.save("highway_dqn/model")
     else:
         # Load existing trained model
-        model = DQN.load("highway_a2c/model", env=env)
+        model = DQN.load("highway_dqn/model", env=env)
 
 
     # Run the model and record video
     env = RecordVideo(
-        env, video_folder="highway_a2c/videos", episode_trigger=lambda e: True
+        env, video_folder="highway_dqn/videos", episode_trigger=lambda e: True
     )
     env.unwrapped.config["simulation_frequency"] = 15  # Higher FPS for rendering
     env.unwrapped.set_record_video_wrapper(env)
