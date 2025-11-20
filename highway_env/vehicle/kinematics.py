@@ -61,7 +61,7 @@ class Vehicle(RoadObject):
         Create a random vehicle on the road.
 
         The lane and /or speed are chosen randomly, while longitudinal position is chosen behind the last
-        vehicle in the road with density based on the number of lanes.
+        vehicle or obstacle in the road with density based on the number of lanes.
 
         :param road: the road where the vehicle is driving
         :param speed: initial speed in [m/s]. If None, will be chosen randomly
@@ -94,12 +94,41 @@ class Vehicle(RoadObject):
             * default_spacing
             * np.exp(-5 / 40 * len(road.network.graph[_from][_to]))
         )
-        x0 = (
-            np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles])
-            if len(road.vehicles)
-            else 3 * offset
-        )
+        
+        # Gather longitudinal positions of vehicles on this lane
+        vehicle_longs = [
+            lane.local_coordinates(v.position)[0]
+            for v in road.vehicles
+            if hasattr(v, 'lane_index') and v.lane_index and lane == road.network.get_lane(v.lane_index)
+        ]
+        
+        # Start with vehicle positions or default
+        if vehicle_longs:
+            x0 = np.max(vehicle_longs)
+        else:
+            x0 = 3 * offset
+        
+        # Add spacing for new vehicle
         x0 += offset * road.np_random.uniform(0.9, 1.1)
+        
+        # Check if there are obstacles near the spawn position
+        # If there's a construction zone ahead, skip past it
+        obstacles_nearby = [
+            lane.local_coordinates(o.position)[0]
+            for o in getattr(road, 'objects', [])
+            if hasattr(o, 'position')
+        ]
+        
+        if obstacles_nearby:
+            # Find obstacles that are close ahead (within 50m)
+            obstacles_ahead = [obs_long for obs_long in obstacles_nearby if x0 <= obs_long <= x0 + 50]
+            
+            if obstacles_ahead:
+                # There's a construction zone ahead, skip past it
+                # Add extra buffer (200m) to ensure we're well past the construction zone
+                max_obstacle_ahead = np.max(obstacles_ahead)
+                x0 = max_obstacle_ahead + 200  # Skip past construction zone
+        # print(f"[DEBUG] : vehicle placed at {x0}, {_id}\n")        
         v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
         return v
 

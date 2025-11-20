@@ -9,18 +9,13 @@ import highway_env
 TRAIN = True  # Set to False to test trained model, True to train first
 
 if __name__ == "__main__":
-    # Create the environment
-    gym.register(
-        id='highway-with-obstacles-v0',
-        entry_point='highway_env.envs:HighwayWithObstaclesEnv',
-    )
 
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
         "obstacles_count": 4,
         "obstacle_spacing": 20,
-        "vehicles_count": 50,  
+        "vehicles_count": 20,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
