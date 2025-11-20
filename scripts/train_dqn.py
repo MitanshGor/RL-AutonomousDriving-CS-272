@@ -6,16 +6,16 @@ from stable_baselines3.common.env_util import make_vec_env
 import json
 from highway_env.envs.highway_with_obstacles_env import HighwayWithObstaclesEnv
 import highway_env 
-TRAIN = True  # Set to False to test trained model, True to train first
+TRAIN = False  # Set to False to test trained model, True to train first
 
 if __name__ == "__main__":
 
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
-        "obstacles_count": 10,
-        "obstacle_spacing": 20,
-        "vehicles_count": 30,  
+        "obstacles_count": 20,
+        "obstacle_spacing": 5,
+        "vehicles_count": 20,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         model.save("highway_a2c/model")
     else:
         # Load existing trained model
-        model = DQN.load("highway_a2c/model", env=env)
+        model = A2C.load("highway_a2c/model", env=env)
 
 
     # Run the model and record video

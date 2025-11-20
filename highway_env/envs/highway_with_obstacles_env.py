@@ -417,6 +417,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 total_rewards['collision_reward'] = -50#self.config['safety_rules']['collision']['penalty']
 
         if self._is_truncated():
+            print('???')
             total_rewards['end'] = 50
 
         '''if self._is_terminated() or self._is_truncated():
