@@ -13,9 +13,9 @@ if __name__ == "__main__":
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
-        "obstacles_count": 4,
+        "obstacles_count": 10,
         "obstacle_spacing": 20,
-        "vehicles_count": 20,  
+        "vehicles_count": 30,  
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
         "construction_zone_side": "random",  # "left", "right", or "random"
@@ -25,10 +25,6 @@ if __name__ == "__main__":
         "reward": {
             "collision_penalty": -1.0,
             "closed_lane_penalty": -1.0,
-            "progress_reward": {
-            "type": "percentage",
-            "description": "Distance covered as percentage (e.g., 0.73 if 73% covered)"
-            },
             "speed_compliance": {
             "within_limit": 0.05,
             },
@@ -38,7 +34,7 @@ if __name__ == "__main__":
         },
 
         "speed": {
-            "construction_zone_limit_mph": 45,
+            "construction_zone_limit_mph": 25,
             "construction_zone_limit_kmh": 72.42,
             "speed_tolerance_mph": 5,
             "speed_tolerance_kmh": 8.05,
@@ -67,37 +63,37 @@ if __name__ == "__main__":
     obs, info = env.reset()
 
     # Create the model
-    model = DQN(
+    '''model = DQN(
         "MlpPolicy",
         env,
         policy_kwargs=dict(net_arch=[256, 256]),
         learning_rate=5e-4,
         buffer_size=15000,
-        learning_starts=200,
+        learning_starts=2000,
         batch_size=32,
-        gamma=0.8,
+        gamma=0.9,
         train_freq=1,
         gradient_steps=1,
         target_update_interval=50,
         verbose=1,
         tensorboard_log="highway_dqn/",
-    )
+    )'''
 
-    #vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=4)
-    #model = A2C('MlpPolicy', vec_env, verbose=1)
+    vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=8)
+    model = A2C('MlpPolicy', vec_env, verbose=1)
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(2000))
-        model.save("highway_dqn/model")
+        model.learn(total_timesteps=int(1500))
+        model.save("highway_a2c/model")
     else:
         # Load existing trained model
-        model = DQN.load("highway_dqn/model", env=env)
+        model = DQN.load("highway_a2c/model", env=env)
 
 
     # Run the model and record video
     env = RecordVideo(
-        env, video_folder="highway_dqn/videos", episode_trigger=lambda e: True
+        env, video_folder="highway_a2c/videos", episode_trigger=lambda e: True
     )
     env.unwrapped.config["simulation_frequency"] = 15  # Higher FPS for rendering
     env.unwrapped.set_record_video_wrapper(env)
