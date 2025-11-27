@@ -5,6 +5,8 @@ import numpy as np
 from highway_env import utils
 from highway_env.envs.common.action import Action
 from highway_env.envs.highway_env import HighwayEnv
+from highway_env.road.lane import LineType, SineLane, StraightLane
+from highway_env.road.road import Road, RoadNetwork
 from highway_env.vehicle.kinematics import Vehicle
 from highway_env.vehicle.objects import Obstacle
 
@@ -23,15 +25,13 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         config = super().default_config()
         config.update(
             {
-                "obstacles_count": 10,  # Number of static obstacles on the road
-                "obstacle_spacing": 20,  # Minimum spacing between obstacles [m]
-                "obstacle_on_lanes": None,  # List of lane indices where obstacles can appear, None for all lanes
-                 # Construction zone configurations
-                "construction_zones_count": 2,  # Number of construction zones
-                "construction_zone_length": 100,  # Length of each zone [m]
-                "construction_zone_side": "random",  # "left", "right", or "random"
-                "construction_zone_lanes": 2,  # Number of lanes the zone takes up
-                "construction_cone_spacing": 5,  # Distance between cones [m]
+                "vehicles_count": 30,  # Reduced from default 50 to avoid congestion
+                "vehicles_density": 0.8,  # Reduced density to spread vehicles out
+                # Construction zone configurations
+                "construction_zones_count": 1,  # Number of construction zones
+                "construction_zone_length": 200,  # Length of each zone [m]
+                "construction_zone_taper_length": 100,  # Length of merge/diverge transitions [m] - increased for gradual merge
+                "construction_zone_closed_lanes": 2,  # Number of lanes closed in construction zone
 
                 "reward": {
                     "collision_penalty": -1.0,
@@ -70,242 +70,258 @@ class HighwayWithObstaclesEnv(HighwayEnv):
     
     def _reset(self) -> None:
         self._create_road()
-        self.construction_zones = []  # Store zone boundaries for vehicle placement checks
-        self._create_construction_zones()
-        self._create_obstacles()
         self._create_vehicles()
 
+    def step(self, action):
+        """Override step to manage lane change restrictions in construction zones."""
+        # Before stepping, disable lane changes for vehicles in construction zones
+        for vehicle in self.road.vehicles:
+            if hasattr(vehicle, 'enable_lane_change'):
+                # Check if vehicle is in construction zone using global X coordinate
+                try:
+                    vehicle_x = vehicle.position[0]  # Global X coordinate
+                    in_zone = self._is_in_construction_zone(vehicle_x)
+                    
+                    # Disable lane changes in construction zone
+                    if in_zone:
+                        vehicle.enable_lane_change = False
+                    else:
+                        # Re-enable lane changes outside construction zone
+                        if not hasattr(vehicle, '_original_lane_change_enabled'):
+                            vehicle._original_lane_change_enabled = True
+                        vehicle.enable_lane_change = vehicle._original_lane_change_enabled
+                except:
+                    # If we can't determine position, allow lane changes
+                    pass
+        
+        # Call parent step
+        return super().step(action)
 
-    def _create_construction_zones(self) -> None:
+
+    def _create_road(self) -> None:
         """
-        Create construction zones on the highway with traffic cones marking the boundaries.
-        Zones start from left or right edge and taper towards center.
+        Create a highway with construction zones that reduce lane count.
+        Uses road network topology with lane merges instead of obstacles.
         """
         zones_count = self.config["construction_zones_count"]
         zone_length = self.config["construction_zone_length"]
-        zone_side = self.config["construction_zone_side"]
-        zone_lanes = self.config["construction_zone_lanes"]
-        cone_spacing = self.config["construction_cone_spacing"]
-        lanes_count = self.config["lanes_count"]
+        taper_length = self.config["construction_zone_taper_length"]
+        closed_lanes = self.config["construction_zone_closed_lanes"]
+        total_lanes = self.config["lanes_count"]
         
+        net = RoadNetwork()
+        
+        # Line types
+        c, s, n = LineType.CONTINUOUS_LINE, LineType.STRIPED, LineType.NONE
         
         if zones_count == 0:
-            return
-        
-        zone_lanes = min(zone_lanes, lanes_count - 1)
-        
-        network = self.road.network
-        lane_index = ("0", "1", 0)
-        lane = network.get_lane(lane_index)
-        
-        ego_start = 100  # Approximate ego spawn position
-        visible_start = ego_start + 300  # Start zones 300m ahead of ego
-        usable_length = lane.length - visible_start - 100  # Keep buffer at end
-        
-        # create each construction zone
-        for zone_idx in range(zones_count):
-
-            if zone_side == "random":
-                side = self.np_random.choice(["left", "right"])
-            else:
-                side = zone_side
-            
-            if zones_count == 1:
-                start_long = visible_start + usable_length / 2
-            else:
-                start_long = visible_start + (zone_idx * (usable_length - zone_length) / (zones_count - 1))
-            
-            end_long = start_long + zone_length
-            
-            # Store zone boundaries for vehicle placement checks
-            self.construction_zones.append({
-                'start': start_long,
-                'end': end_long,
-                'side': side,
-                'lanes': zone_lanes
-            })
-            
-            # Create the tapered construction zone
-            self._create_zone_with_cones(
-                start_long, end_long, side, zone_lanes, cone_spacing
+            # Simple straight road without construction zones
+            net = RoadNetwork.straight_road_network(
+                self.config["lanes_count"], length=10000, speed_limit=30
             )
-        
-    def _create_zone_with_cones(
-        self, 
-        start_long: float, 
-        end_long: float, 
-        side: str, 
-        num_lanes: int, 
-        cone_spacing: float
-    ) -> None:
-        """
-        Create a construction zone with cones forming a tapered boundary.
-        
-        :param start_long: Starting longitudinal position [m]
-        :param end_long: Ending longitudinal position [m]
-        :param side: "left" or "right" - which side of road zone starts from
-        :param num_lanes: Number of lanes the zone occupies at maximum
-        :param cone_spacing: Distance between consecutive cones [m]
-        """
-        network = self.road.network
-        lanes_count = self.config["lanes_count"]
-        
-        # Get a reference lane for positioning
-        reference_lane_idx = lanes_count - 1 if side == "left" else 0
-        reference_lane = network.get_lane(("0", "1", reference_lane_idx))
-        lane_width = reference_lane.width_at(start_long)
-         
-        num_cones = int((end_long - start_long) / cone_spacing)
-        
-        for i in range(num_cones + 1):
-            # Current longitudinal position
-            long_pos = start_long + i * cone_spacing
-            if long_pos > end_long:
-                break
+        else:
+            # Build segmented road with construction zones
+            # Segment lengths
+            before_zone = 800  # Normal driving before first zone (increased from 500)
+            between_zones = 600  # Distance between zones if multiple (increased from 400)
+            after_zone = 500  # Normal driving after last zone
             
-            progress = (long_pos - start_long) / (end_long - start_long)
+            open_lanes = total_lanes - closed_lanes
+            if open_lanes < 1:
+                open_lanes = 1
+                closed_lanes = total_lanes - 1
             
-            taper_in_end = 0.3
-            taper_out_start = 0.7
+            lane_width = StraightLane.DEFAULT_WIDTH
+            current_x = 0
             
-            if progress <= taper_in_end:
-                taper_progress = progress / taper_in_end
-            elif progress <= taper_out_start:
-                taper_progress = 1.0
-            else:
-                taper_progress = (1 - progress) / (1 - taper_out_start)
+            # Store construction zone info for reward calculation
+            self.construction_zones = []
             
-            # Calculate lateral offset for the taper
-            max_lateral_shift = num_lanes * lane_width
-            current_lateral_shift = taper_progress * max_lateral_shift
+            # Segment a: Before first construction zone
+            for lane_idx in range(total_lanes):
+                y_pos = lane_idx * lane_width
+                line_type_left = c if lane_idx == 0 else s
+                line_type_right = c if lane_idx == total_lanes - 1 else n
+                net.add_lane(
+                    "a", "b",
+                    StraightLane(
+                        [current_x, y_pos],
+                        [current_x + before_zone, y_pos],
+                        line_types=[line_type_left, line_type_right],
+                        speed_limit=30
+                    )
+                )
             
-            # Use the outermost affected lane as reference
-            if side == "left":
-                # Left side: start from leftmost lane, move right (negative lateral offset)
-                cone_lane_idx = lanes_count - 1  # Leftmost lane
-                lateral_offset = lane_width / 2 - current_lateral_shift  # Start at left edge, move inward
-            else:  # right
-                # Right side: start from rightmost lane, move left (positive lateral offset)
-                cone_lane_idx = 0  # Rightmost lane
-                lateral_offset = -lane_width / 2 + current_lateral_shift  # Start at right edge, move inward
+            current_x += before_zone
+            node_from = "b"
+            node_to = "c"
             
-            # Get the lane for positioning
-            lane_index = ("0", "1", cone_lane_idx)
-            lane_obj = network.get_lane(lane_index)
-            
-            position = lane_obj.position(long_pos, lateral_offset)
-            heading = lane_obj.heading_at(long_pos)
-            
-            # Create traffic cone
-            cone = Obstacle(self.road, position, heading=heading, speed=0)
-            cone.LENGTH = 2.0
-            cone.WIDTH = 2.0
-            cone.collidable = True
-            self.road.objects.append(cone)
-            
-       
-    def _create_obstacles(self) -> None:
-        """Create static obstacles on the road."""
-        obstacles_count = self.config["obstacles_count"]
-        obstacle_spacing = self.config["obstacle_spacing"]
-        obstacle_lanes = self.config["obstacle_on_lanes"]
-        
-        if obstacle_lanes is None:
-            obstacle_lanes = list(range(self.config["lanes_count"]))
-        
-        network = self.road.network
-        lane_index = ("0", "1", 0)  # First lane of the straight road
-        lane = network.get_lane(lane_index) # for getting total length
-        
-        # Create obstacles at random positions
-        for _ in range(obstacles_count):
-            longitudinal = self.np_random.uniform(50, lane.length - 50)
-            
-            lane_id = self.np_random.choice(obstacle_lanes)
-            obstacle_lane_index = ("0", "1", lane_id)
-            
-            obstacle_lane = network.get_lane(obstacle_lane_index)
-            position = obstacle_lane.position(longitudinal, 0)
-            heading = obstacle_lane.heading_at(longitudinal)
-            
-            if self._is_position_safe(position, obstacle_spacing):
-                obstacle = Obstacle(self.road, position, heading=heading, speed=0)
-                self.road.objects.append(obstacle)
-
-    def _is_position_safe(self, position: np.ndarray, min_distance: float) -> bool:
-        """
-        Check if a position is safe (not too close to existing vehicles or obstacles).
-        
-        :param position: position to check [x, y]
-        :param min_distance: minimum safe distance [m]
-        :return: True if position is safe
-        """
-        # Check distance to all vehicles
-        for vehicle in self.road.vehicles:
-            if np.linalg.norm(vehicle.position - position) < min_distance: # checks euclidian distance
-                return False
-        
-        # Check distance to existing obstacles
-        for obj in self.road.objects:
-            if np.linalg.norm(obj.position - position) < min_distance:
-                return False
-        
-        return True
-
-    def _is_in_forbidden_construction_zone(self, longitudinal_pos: float, lane_idx: int) -> bool:
-        """
-        Check if a position is inside the area that is bounded by construction zone obstacles.
-        
-        :param longitudinal_pos: longitudinal position along road [m]
-        :param lane_idx: lane index (0=rightmost, lanes_count-1=leftmost)
-        :return: True if position is inside a construction zone
-        """
-        if not hasattr(self, 'construction_zones'):
-            return False
-            
-        lanes_count = self.config["lanes_count"]
-        buffer = 20  # Additional buffer zone [m] - increased for safety
-        
-        for zone in self.construction_zones:
-            # Check if longitudinal position is within zone (with buffer)
-            if zone['start'] - buffer <= longitudinal_pos <= zone['end'] + buffer:
-                # Determine affected lanes based on zone side
-                # Add +1 to affected lanes to include adjacent lane for extra safety
-                if zone['side'] == 'left':
-                    affected_lanes = list(range(max(0, lanes_count - zone['lanes'] - 1), lanes_count))
-                else:  # right
-                    affected_lanes = list(range(0, min(lanes_count, zone['lanes'] + 1)))
+            for zone_idx in range(zones_count):
+                zone_start_x = current_x
                 
-                # Check if lane is affected
-                if lane_idx in affected_lanes:
-                    return True
+                # LANE CLOSURES: Lanes simply end, no merging/tapering
+                # Close lanes sequentially - lane 4 ends, then lane 3 ends
+                
+                num_lanes_to_close = total_lanes - open_lanes
+                closure_length = 50  # Short distance for each lane to end
+                
+                # Close lanes one by one
+                for closure_step in range(num_lanes_to_close):
+                    current_lane_count = total_lanes - closure_step
+                    next_lane_count = current_lane_count - 1
+                    
+                    # Continuing lanes go straight
+                    for lane_idx in range(next_lane_count):
+                        y_pos = lane_idx * lane_width
+                        line_type_left = c if lane_idx == 0 else s
+                        line_type_right = c if lane_idx == next_lane_count - 1 else n
+                        
+                        net.add_lane(
+                            node_from, node_to,
+                            StraightLane(
+                                [current_x, y_pos],
+                                [current_x + closure_length, y_pos],
+                                line_types=[line_type_left, line_type_right],
+                                speed_limit=30
+                            )
+                        )
+                    
+                    current_x += closure_length
+                    node_from = node_to
+                    node_to = chr(ord(node_to) + 1)
+                
+                # CONSTRUCTION ZONE: Only open_lanes available
+                for lane_idx in range(open_lanes):
+                    y_pos = lane_idx * lane_width
+                    line_type_left = c if lane_idx == 0 else s
+                    line_type_right = c if lane_idx == open_lanes - 1 else n
+                    net.add_lane(
+                        node_from, node_to,
+                        StraightLane(
+                            [current_x, y_pos],
+                            [current_x + zone_length, y_pos],
+                            line_types=[line_type_left, line_type_right],
+                            speed_limit=20  # Reduced speed in construction zone
+                        )
+                    )
+                
+                # Store zone boundaries
+                self.construction_zones.append({
+                    'start': zone_start_x,
+                    'end': current_x + zone_length + (num_lanes_to_close * closure_length),
+                    'closure_start': zone_start_x,
+                    'closure_end': zone_start_x + (num_lanes_to_close * closure_length),
+                    'zone_start': current_x,
+                    'zone_end': current_x + zone_length,
+                    'reopening_start': current_x + zone_length,
+                    'reopening_end': current_x + zone_length + (num_lanes_to_close * closure_length)
+                })
+                
+                current_x += zone_length
+                node_from = node_to
+                node_to = chr(ord(node_to) + 1)
+                
+                # LANE REOPENINGS: Lanes reappear sequentially
+                # Lane 3 opens first, then lane 4
+                
+                for reopening_step in range(num_lanes_to_close):
+                    current_lane_count = open_lanes + reopening_step
+                    next_lane_count = current_lane_count + 1
+                    
+                    # Continuing lanes go straight
+                    for lane_idx in range(current_lane_count):
+                        y_pos = lane_idx * lane_width
+                        line_type_left = c if lane_idx == 0 else s
+                        line_type_right = c if lane_idx == current_lane_count - 1 else n
+                        
+                        net.add_lane(
+                            node_from, node_to,
+                            StraightLane(
+                                [current_x, y_pos],
+                                [current_x + closure_length, y_pos],
+                                line_types=[line_type_left, line_type_right],
+                                speed_limit=30
+                            )
+                        )
+                    
+                    # Newly opening lane appears
+                    opening_lane_idx = current_lane_count
+                    y_pos = opening_lane_idx * lane_width
+                    line_type_right = c if opening_lane_idx == total_lanes - 1 else n
+                    
+                    net.add_lane(
+                        node_from, node_to,
+                        StraightLane(
+                            [current_x, y_pos],
+                            [current_x + closure_length, y_pos],
+                            line_types=[s, line_type_right],
+                            speed_limit=30
+                        )
+                    )
+                    
+                    current_x += closure_length
+                    node_from = node_to
+                    node_to = chr(ord(node_to) + 1)
+                
+                # If more zones, add straight section between them
+                if zone_idx < zones_count - 1:
+                    for lane_idx in range(total_lanes):
+                        y_pos = lane_idx * lane_width
+                        line_type_left = c if lane_idx == 0 else s
+                        line_type_right = c if lane_idx == total_lanes - 1 else n
+                        net.add_lane(
+                            node_from, node_to,
+                            StraightLane(
+                                [current_x, y_pos],
+                                [current_x + between_zones, y_pos],
+                                line_types=[line_type_left, line_type_right],
+                                speed_limit=30
+                            )
+                        )
+                    current_x += between_zones
+                    node_from = node_to
+                    node_to = chr(ord(node_to) + 1)
+            
+            # Final segment: After last construction zone
+            for lane_idx in range(total_lanes):
+                y_pos = lane_idx * lane_width
+                line_type_left = c if lane_idx == 0 else s
+                line_type_right = c if lane_idx == total_lanes - 1 else n
+                net.add_lane(
+                    node_from, chr(ord(node_from) + 1),
+                    StraightLane(
+                        [current_x, y_pos],
+                        [current_x + after_zone, y_pos],
+                        line_types=[line_type_left, line_type_right],
+                        speed_limit=30
+                    )
+                )
         
-        return False
+        self.road = Road(
+            network=net,
+            np_random=self.np_random,
+            record_history=self.config["show_trajectories"],
+        )
 
     def _is_in_construction_zone(self, longitudinal_pos: float) -> bool:
         """
-        Check if a position is inside a construction zone.
+        Check if a position is inside a construction zone (including merge/diverge tapers).
         
         :param longitudinal_pos: longitudinal position along road [m]
-        :param lane_idx: lane index (0=rightmost, lanes_count-1=leftmost)
         :return: True if position is inside a construction zone
         """
-        if not hasattr(self, 'construction_zones'):
+        if not hasattr(self, 'construction_zones') or not self.construction_zones:
             return False
-            
-        buffer = 20  # Additional buffer zone [m] - increased for safety
         
         for zone in self.construction_zones:
-            # Check if longitudinal position is within zone (with buffer)
-            if zone['start'] - buffer <= longitudinal_pos <= zone['end'] + buffer:
-                    return True
+            # Check if in the entire construction zone area (merge + zone + diverge)
+            if zone['start'] <= longitudinal_pos <= zone['end']:
+                return True
         
         return False
 
     def _create_vehicles(self) -> None:
-        """Create vehicles, avoiding construction zones."""
-        import sys
-        
+        """Create vehicles on the road network, avoiding forbidden lanes."""
         other_vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
         other_per_controlled = utils.near_split(
             self.config["vehicles_count"], num_bins=self.config["controlled_vehicles"]
@@ -313,29 +329,34 @@ class HighwayWithObstaclesEnv(HighwayEnv):
 
         self.controlled_vehicles = []
         for others in other_per_controlled:
-            # Create ego vehicle with retries to avoid construction zones
-            max_attempts = 50
-            for attempt in range(max_attempts):
-                vehicle = Vehicle.create_random(
-                    self.road,
-                    speed=25.0,
-                    lane_id=self.config["initial_lane_id"],
-                    spacing=self.config["ego_spacing"],
-                )
+            # Create ego vehicle at a fixed position before first construction zone
+            # This ensures the player always starts in a safe location
+            if hasattr(self, 'construction_zones') and self.construction_zones:
+                # Spawn 300m before the first construction zone
+                spawn_position_long = max(50, self.construction_zones[0]['start'] - 300)
+            else:
+                spawn_position_long = 50  # Default position if no construction zones
+            
+            # Choose a random non-forbidden lane
+            for attempt in range(50):
+                # Try lanes in the middle first (safer)
+                lane_id = self.config["initial_lane_id"]
+                if lane_id is None:
+                    lane_id = self.road.np_random.choice(self.config["lanes_count"])
                 
-                # Check if vehicle is in construction zone
-                lane = self.road.network.get_lane(vehicle.lane_index)
-                long_pos = lane.local_coordinates(vehicle.position)[0]
-                lane_idx = vehicle.lane_index[2]
-                
-                in_zone = self._is_in_forbidden_construction_zone(long_pos, lane_idx)
-                if not in_zone:
-                    break  # Valid position found
-                else:
-                    if attempt % 10 == 0:
-                        print(f"[DEBUG] Ego spawn attempt {attempt+1}: long={long_pos:.1f}m, lane={lane_idx} (IN ZONE, retrying)")
-                    if attempt == max_attempts - 1:
-                        print(f"[WARNING] Couldn't find safe ego spawn after {max_attempts} attempts")
+                # Get the first road segment (before construction zone)
+                lane_index = ("a", "b", lane_id)
+                try:
+                    lane = self.road.network.get_lane(lane_index)
+                    if not lane.forbidden:
+                        # Create vehicle at specific position
+                        position = lane.position(spawn_position_long, 0)
+                        heading = lane.heading_at(spawn_position_long)
+                        vehicle = Vehicle(self.road, position, heading, speed=25.0)
+                        vehicle.lane_index = lane_index
+                        break
+                except:
+                    continue
             
             vehicle = self.action_type.vehicle_class(
                 self.road, vehicle.position, vehicle.heading, vehicle.speed
@@ -343,101 +364,91 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
-            # Create other vehicles, avoiding construction zones
-            vehicles_created = 0
-            vehicles_skipped = 0
-            for _ in range(others):
-                max_attempts = 30
-                for attempt in range(max_attempts):
+            # Create other vehicles, avoiding forbidden lanes and checking for collisions
+            created = 0
+            attempts = 0
+            max_attempts = others * 20  # Allow more attempts per vehicle
+            
+            while created < others and attempts < max_attempts:
+                attempts += 1
+                try:
                     vehicle = other_vehicles_type.create_random(
-                        self.road, spacing=3.0  
+                        self.road, spacing=1 / self.config["vehicles_density"]
                     )
                     
-                    # Check if vehicle is in construction zone
+                    # Check if vehicle is on a forbidden lane
                     lane = self.road.network.get_lane(vehicle.lane_index)
-                    long_pos = lane.local_coordinates(vehicle.position)[0]
-                    lane_idx = vehicle.lane_index[2]
+                    if lane.forbidden:
+                        continue
                     
-                    in_zone = self._is_in_forbidden_construction_zone(long_pos, lane_idx)
-                    if not in_zone:
+                    # Check for collision with existing vehicles
+                    collision = False
+                    for other in self.road.vehicles:
+                        if other != vehicle:
+                            distance = np.linalg.norm(vehicle.position - other.position)
+                            # Require at least 25m spacing (safe margin)
+                            if distance < 25:
+                                collision = True
+                                break
+                    
+                    if not collision:
                         vehicle.randomize_behavior()
+                        # Disable lane changes initially
+                        if hasattr(vehicle, 'enable_lane_change'):
+                            vehicle.enable_lane_change = False
+                            vehicle._original_lane_change_enabled = True
                         self.road.vehicles.append(vehicle)
-                        vehicles_created += 1
-                        break  # Valid position found
-                    elif attempt == max_attempts - 1:
-                        # Skip this vehicle if can't find valid position
-                        vehicles_skipped += 1
+                        created += 1
+                except:
+                    # If vehicle creation fails, skip it
+                    pass
+
 
     def _reward(self, action: Action) -> float:
         """
         The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
+        Additional rewards for compliance with construction zone speed limits.
         :param action: the last action performed
         :return: the corresponding reward
         """
         rewards = self._rewards(action)
-        print(rewards)
-        reward = sum(
-            #self.config.get(name, 1) * reward for name, reward in rewards.items()
-            v for k,v in rewards.items()
-        )
-        '''if self.config["normalize_reward"]:
-            reward = utils.lmap(
-                reward,
-                [
-                    self.config["collision_reward"],
-                    self.config["high_speed_reward"] + self.config["right_lane_reward"],
-                ],
-                [0, 1],
-            )'''
-        #reward *= rewards["on_road_reward"]
+        reward = sum(v for k, v in rewards.items())
         return reward
 
     def _rewards(self, action: Action) -> dict[str, float]:
         total_rewards = {}
-        #neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
+
+        # Get vehicle's longitudinal position
+        try:
+            longitudinal = self.vehicle.lane.local_coordinates(self.vehicle.position)[0]
+        except:
+            longitudinal = self.vehicle.position[0]
 
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
-        if self._is_in_construction_zone(self.vehicle.lane.local_coordinates(self.vehicle.position)[0]):
+        if self._is_in_construction_zone(longitudinal):
             forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
-            print('\nforward speed:',forward_speed)
             construction_min_speed = self.config['speed']['construction_zone_limit_mph'] - self.config['speed']['speed_tolerance_mph']
             construction_max_speed = self.config['speed']['construction_zone_limit_mph'] + self.config['speed']['speed_tolerance_mph']
-            print(construction_max_speed)
-            print(construction_min_speed)
 
-            if forward_speed >= construction_min_speed and forward_speed <= construction_max_speed:
-                total_rewards['speed_compliance'] = 0.25#self.config['reward']['speed_compliance']['within_limit']
+            if construction_min_speed <= forward_speed <= construction_max_speed:
+                total_rewards['speed_compliance'] = 0.25
             else:
-                total_rewards['speed_compliance'] = -0.25#self.config['reward']['speed_violation']['beyond_limit']
+                total_rewards['speed_compliance'] = -0.25
         else:
             total_rewards['efficiency'] = 0.025
 
         if self._is_terminated():
             if self.vehicle.crashed:
-                total_rewards['collision_reward'] = -50#self.config['safety_rules']['collision']['penalty']
+                total_rewards['collision_reward'] = -50
 
         if self._is_truncated():
-            print('???')
             total_rewards['end'] = 50
-
-        '''if self._is_terminated() or self._is_truncated():
-            total_rewards['progress'] = self.vehicle.lane.local_coordinates(self.vehicle.position)[0] / self.vehicle.lane.length'''
-
-        '''longitudinal = self.vehicle.lane.local_coordinates(self.vehicle.position)[0]
-        progress = longitudinal / self.vehicle.lane.length
-        total_rewards['progress_reward'] = round(progress, 2)'''
 
         forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
         scaled_speed = utils.lmap(
             forward_speed, self.config["reward_speed_range"], [0, 1]
         )
         total_rewards['high_speed_reward'] = np.clip(scaled_speed, 0, 0.5)
-        '''return {
-            "collision_reward": float(self.vehicle.crashed),
-            "right_lane_reward": lane / max(len(neighbours) - 1, 1),
-            "high_speed_reward": np.clip(scaled_speed, 0, 1),
-            "on_road_reward": float(self.vehicle.on_road),
-        }'''
 
         return total_rewards
             

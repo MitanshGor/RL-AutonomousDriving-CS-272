@@ -51,6 +51,7 @@ logs/
 
 # Model checkpoints and data
 highway_dqn/
+highway_a2c/
 models/
 checkpoints/
 data/

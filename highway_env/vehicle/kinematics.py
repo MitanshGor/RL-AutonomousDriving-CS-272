@@ -127,8 +127,7 @@ class Vehicle(RoadObject):
                 # There's a construction zone ahead, skip past it
                 # Add extra buffer (200m) to ensure we're well past the construction zone
                 max_obstacle_ahead = np.max(obstacles_ahead)
-                x0 = max_obstacle_ahead + 200  # Skip past construction zone
-        # print(f"[DEBUG] : vehicle placed at {x0}, {_id}\n")        
+                x0 = max_obstacle_ahead + 140  # Skip past construction zone
         v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
         return v
 

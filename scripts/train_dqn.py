@@ -13,40 +13,32 @@ if __name__ == "__main__":
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
     env.unwrapped.config.update({
-        "obstacles_count": 20,
-        "obstacle_spacing": 5,
-        "vehicles_count": 20,  
+        "vehicles_count": 30,
+        "vehicles_density": 0.8,
         "construction_zones_count": 2,  # Number of construction zones
         "construction_zone_length": 150,  # Length of each zone [m]
-        "construction_zone_side": "random",  # "left", "right", or "random"
-        "construction_zone_lanes": 2,  # Number of lanes the zone takes up
-        "construction_cone_spacing": 5,  # Distance between cones [m]
+        "construction_zone_taper_length": 50,  # Length of lane closures/reopenings [m]
+        "construction_zone_closed_lanes": 2,  # Number of lanes closed (4 lanes -> 2 lanes)
+        "lanes_count": 4,
+        "duration": 120,  # Simulation duration in seconds
 
         "reward": {
             "collision_penalty": -1.0,
             "closed_lane_penalty": -1.0,
             "speed_compliance": {
-            "within_limit": 0.05,
+                "within_limit": 0.05,
             },
             "speed_violation": {
-            "beyond_limit": -0.05,
+                "beyond_limit": -0.05,
             }
-        },
-
-        "speed": {
-            "construction_zone_limit_mph": 25,
-            "construction_zone_limit_kmh": 72.42,
-            "speed_tolerance_mph": 5,
-            "speed_tolerance_kmh": 8.05,
-            "description": "Must maintain speed within ±5 mph of construction zone limit"
         },
 
         "safety_rules": {
             "collision": {
-            "penalty": -1.0,
+                "penalty": -1.0,
             },
             "closed_lane": {
-            "penalty": -1.0,
+                "penalty": -1.0,
             }
         },
     })
@@ -55,8 +47,10 @@ if __name__ == "__main__":
     print("Environment Configuration:")
     print(f"  Construction zones: {env.unwrapped.config['construction_zones_count']}")
     print(f"  Zone length: {env.unwrapped.config['construction_zone_length']}m")
-    print(f"  Obstacles: {env.unwrapped.config['obstacles_count']}")
+    print(f"  Lanes: {env.unwrapped.config['lanes_count']} -> {env.unwrapped.config['lanes_count'] - env.unwrapped.config['construction_zone_closed_lanes']} (in construction zone)")
     print(f"  Vehicles: {env.unwrapped.config['vehicles_count']}")
+    print(f"  Density: {env.unwrapped.config['vehicles_density']}")
+    print(f"  Duration: {env.unwrapped.config['duration']}s")
     print("="*60 + "\n")
     
     # Now reset with the updated config
@@ -79,9 +73,9 @@ if __name__ == "__main__":
         tensorboard_log="highway_dqn/",
     )'''
 
+    # A2C Training
     vec_env = make_vec_env('highway-with-obstacles-v0', n_envs=8)
     model = A2C('MlpPolicy', vec_env, verbose=1)
-
     # Train the model
     if TRAIN:
         model.learn(total_timesteps=int(1500))
@@ -89,12 +83,25 @@ if __name__ == "__main__":
     else:
         # Load existing trained model
         model = A2C.load("highway_a2c/model", env=env)
-
-
-    # Run the model and record video
+    # # Run the model and record video
     env = RecordVideo(
         env, video_folder="highway_a2c/videos", episode_trigger=lambda e: True
     )
+
+    # # for DQN training
+    # model = DQN("MlpPolicy", env)
+    # # Train the model
+    # if TRAIN:
+    #     model.learn(total_timesteps=int(1500))
+    #     model.save("highway_dqn/model")
+    # else:
+    #     # Load existing trained model
+    #     model = DQN.load("highway_dqn/model", env=env)
+
+    # # Run the model and record video
+    # env = RecordVideo(
+    #     env, video_folder="highway_dqn/videos", episode_trigger=lambda e: True
+    # )
     env.unwrapped.config["simulation_frequency"] = 15  # Higher FPS for rendering
     env.unwrapped.set_record_video_wrapper(env)
 
@@ -106,10 +113,11 @@ if __name__ == "__main__":
         done = truncated = False
         obs, info = env.reset()
         
-        # Print obstacle count for debugging
+        # Print info for debugging
         print(f"\nEpisode {videos + 1}:")
         print(f"  Vehicles: {len(env.unwrapped.road.vehicles)}")
-        print(f"  Total objects (cones+barriers+obstacles): {len(env.unwrapped.road.objects)}")
+        if hasattr(env.unwrapped, 'construction_zones'):
+            print(f"  Construction zones: {len(env.unwrapped.construction_zones)}")
         r = 0
         while not (done or truncated):
             # Predict
