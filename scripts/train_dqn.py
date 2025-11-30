@@ -20,7 +20,6 @@ if __name__ == "__main__":
         "construction_zone_taper_length": 50,  # Length of lane closures/reopenings [m]
         "construction_zone_closed_lanes": 2,  # Number of lanes closed (4 lanes -> 2 lanes)
         "lanes_count": 4,
-        "duration": 120,  # Simulation duration in seconds
 
         "reward": {
             "collision_penalty": -1.0,

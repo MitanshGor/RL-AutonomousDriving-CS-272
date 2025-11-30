@@ -27,6 +27,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             {
                 "vehicles_count": 30,  # Reduced from default 50 to avoid congestion
                 "vehicles_density": 0.8,  # Reduced density to spread vehicles out
+                "duration": 75,  # Episode duration in seconds
                 # Construction zone configurations
                 "construction_zones_count": 1,  # Number of construction zones
                 "construction_zone_length": 200,  # Length of each zone [m]
@@ -49,11 +50,10 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 },
 
                 "speed": {
-                    "construction_zone_limit_mph": 45,
-                    "construction_zone_limit_kmh": 72.42,
-                    "speed_tolerance_mph": 5,
-                    "speed_tolerance_kmh": 8.05,
-                    "description": "Must maintain speed within ±5 mph of construction zone limit"
+                    "construction_zone_limit_ms": 20,  # m/s (matches lane speed_limit)
+                    "normal_zone_limit_ms": 30,  # m/s
+                    "speed_tolerance_ms": 2.5,  # m/s tolerance (±2.5 m/s)
+                    "description": "Speed limits in meters per second"
                 },
 
                 "safety_rules": {
@@ -332,8 +332,8 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             # Create ego vehicle at a fixed position before first construction zone
             # This ensures the player always starts in a safe location
             if hasattr(self, 'construction_zones') and self.construction_zones:
-                # Spawn 300m before the first construction zone
-                spawn_position_long = max(50, self.construction_zones[0]['start'] - 300)
+                # Spawn 400m before the first construction zone
+                spawn_position_long = max(50, self.construction_zones[0]['start'] - 400)
             else:
                 spawn_position_long = 50  # Default position if no construction zones
             
@@ -427,8 +427,8 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
         if self._is_in_construction_zone(longitudinal):
             forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
-            construction_min_speed = self.config['speed']['construction_zone_limit_mph'] - self.config['speed']['speed_tolerance_mph']
-            construction_max_speed = self.config['speed']['construction_zone_limit_mph'] + self.config['speed']['speed_tolerance_mph']
+            construction_min_speed = self.config['speed']['construction_zone_limit_ms'] - self.config['speed']['speed_tolerance_ms']
+            construction_max_speed = self.config['speed']['construction_zone_limit_ms'] + self.config['speed']['speed_tolerance_ms']
 
             if construction_min_speed <= forward_speed <= construction_max_speed:
                 total_rewards['speed_compliance'] = 0.25
