@@ -12,36 +12,6 @@ if __name__ == "__main__":
 
     env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
     
-    env.unwrapped.config.update({
-        "vehicles_count": 30,
-        "vehicles_density": 0.8,
-        "construction_zones_count": 2,  # Number of construction zones
-        "construction_zone_length": 150,  # Length of each zone [m]
-        "construction_zone_taper_length": 50,  # Length of lane closures/reopenings [m]
-        "construction_zone_closed_lanes": 2,  # Number of lanes closed (4 lanes -> 2 lanes)
-        "lanes_count": 4,
-
-        "reward": {
-            "collision_penalty": -1.0,
-            "closed_lane_penalty": -1.0,
-            "speed_compliance": {
-                "within_limit": 0.05,
-            },
-            "speed_violation": {
-                "beyond_limit": -0.05,
-            }
-        },
-
-        "safety_rules": {
-            "collision": {
-                "penalty": -1.0,
-            },
-            "closed_lane": {
-                "penalty": -1.0,
-            }
-        },
-    })
-    
     print("\n" + "="*60)
     print("Environment Configuration:")
     print(f"  Construction zones: {env.unwrapped.config['construction_zones_count']}")

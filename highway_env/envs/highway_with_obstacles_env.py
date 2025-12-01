@@ -25,14 +25,14 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         config = super().default_config()
         config.update(
             {
-                "vehicles_count": 30,  # Reduced from default 50 to avoid congestion
-                "vehicles_density": 0.8,  # Reduced density to spread vehicles out
-                "duration": 75,  # Episode duration in seconds
-                # Construction zone configurations
-                "construction_zones_count": 1,  # Number of construction zones
-                "construction_zone_length": 200,  # Length of each zone [m]
-                "construction_zone_taper_length": 100,  # Length of merge/diverge transitions [m] - increased for gradual merge
-                "construction_zone_closed_lanes": 2,  # Number of lanes closed in construction zone
+                "vehicles_count": 30,
+                "vehicles_density": 0.8,
+                "construction_zones_count": 2,  # Number of construction zones
+                "construction_zone_length": 150,  # Length of each zone [m]
+                "construction_zone_taper_length": 50,  # Length of lane closures/reopenings [m]
+                "construction_zone_closed_lanes": 2,  # Number of lanes closed (4 lanes -> 2 lanes)
+                "lanes_count": 4,
+                "duration": 75,
 
                 "reward": {
                     "collision_penalty": -1.0,
@@ -54,15 +54,6 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                     "normal_zone_limit_ms": 30,  # m/s
                     "speed_tolerance_ms": 2.5,  # m/s tolerance (±2.5 m/s)
                     "description": "Speed limits in meters per second"
-                },
-
-                "safety_rules": {
-                    "collision": {
-                    "penalty": -1.0,
-                    },
-                    "closed_lane": {
-                    "penalty": -1.0,
-                    }
                 },
             }
         )
@@ -425,8 +416,9 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             longitudinal = self.vehicle.position[0]
 
         # Use forward speed rather than speed, see https://github.com/eleurent/highway-env/issues/268
+        forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
+
         if self._is_in_construction_zone(longitudinal):
-            forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
             construction_min_speed = self.config['speed']['construction_zone_limit_ms'] - self.config['speed']['speed_tolerance_ms']
             construction_max_speed = self.config['speed']['construction_zone_limit_ms'] + self.config['speed']['speed_tolerance_ms']
 
@@ -435,6 +427,10 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             else:
                 total_rewards['speed_compliance'] = -0.25
         else:
+            scaled_speed = utils.lmap(
+                forward_speed, self.config["reward_speed_range"], [0, 1]
+            )
+            total_rewards['high_speed_reward'] = np.clip(scaled_speed, 0, 0.5)
             total_rewards['efficiency'] = 0.025
 
         if self._is_terminated():
@@ -443,12 +439,6 @@ class HighwayWithObstaclesEnv(HighwayEnv):
 
         if self._is_truncated():
             total_rewards['end'] = 50
-
-        forward_speed = self.vehicle.speed * np.cos(self.vehicle.heading)
-        scaled_speed = utils.lmap(
-            forward_speed, self.config["reward_speed_range"], [0, 1]
-        )
-        total_rewards['high_speed_reward'] = np.clip(scaled_speed, 0, 0.5)
 
         return total_rewards
             
