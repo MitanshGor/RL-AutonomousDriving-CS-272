@@ -12,7 +12,7 @@ env.unwrapped.config.update({
     "construction_zone_taper_length": 50,
     "construction_zone_closed_lanes": 2,
     "lanes_count": 4,
-    "duration": 70,
+    "duration": 30,
     "simulation_frequency": 15,
     "policy_frequency": 5,
     "show_trajectories": True,

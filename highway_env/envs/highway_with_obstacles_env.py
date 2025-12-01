@@ -25,7 +25,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         config = super().default_config()
         config.update(
             {
-                "vehicles_count": 30,
+                "vehicles_count": 40,
                 "vehicles_density": 0.8,
                 "construction_zones_count": 2,  # Number of construction zones
                 "construction_zone_length": 150,  # Length of each zone [m]
@@ -113,7 +113,7 @@ class HighwayWithObstaclesEnv(HighwayEnv):
         else:
             # Build segmented road with construction zones
             # Segment lengths
-            before_zone = 800  # Normal driving before first zone (increased from 500)
+            before_zone = 700  # Normal driving before first zone
             between_zones = 600  # Distance between zones if multiple (increased from 400)
             after_zone = 500  # Normal driving after last zone
             
@@ -448,10 +448,10 @@ class HighwayWithObstaclesEnv(HighwayEnv):
 
         if self._is_terminated():
             if self.vehicle.crashed:
-                total_rewards['collision_reward'] = -50
+                total_rewards['collision_reward'] = -5
 
         if self._is_truncated():
-            total_rewards['end'] = 50
+            total_rewards['end'] = 5
 
         return total_rewards
             
