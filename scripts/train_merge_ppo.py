@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(100000), callback=eval_callback)
+        model.learn(total_timesteps=int(50000), callback=eval_callback)
         model.save("highway_ppo/model")
 
         x, y = ts2xy(load_results(log_dir), 'timesteps')

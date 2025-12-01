@@ -1,3 +1,6 @@
+# PPO Implementation from SB3:
+# https://github.com/DLR-RM/stable-baselines3/tree/master/stable_baselines3/ppo
+
 import warnings
 from typing import Any, ClassVar, Optional, TypeVar, Union
 
@@ -232,6 +235,8 @@ class PPO(OnPolicyAlgorithm):
                 policy_loss_2 = advantages * th.clamp(ratio, 1 - clip_range, 1 + clip_range)
                 policy_loss = -th.min(policy_loss_1, policy_loss_2).mean()
 
+                # dual-clip idea:
+                # https://ojs.aaai.org/index.php/AAAI/article/view/6144
                 if self.dual_clip > 0:
                     clipped = advantages * self.dual_clip
                     policy_loss = th.where(advantages < 0, th.max(policy_loss, clipped), policy_loss)
@@ -265,6 +270,8 @@ class PPO(OnPolicyAlgorithm):
 
                 entropy_losses.append(entropy_loss.item())
 
+                # KL-Penalty idea:
+                # https://arxiv.org/abs/2110.10522
                 if self.kl_coef > 0:
                     loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + self.kl_coef * kl_loss
                 else:
