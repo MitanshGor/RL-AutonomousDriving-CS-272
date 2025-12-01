@@ -15,6 +15,7 @@ env.unwrapped.config.update({
     "duration": 70,
     "simulation_frequency": 15,
     "policy_frequency": 5,
+    "show_trajectories": True,
 })
 
 obs, info = env.reset()

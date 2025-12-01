@@ -147,6 +147,9 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             node_from = "b"
             node_to = "c"
             
+            # Track lanes that need obstacles at their end
+            obstacle_positions = []
+            
             for zone_idx in range(zones_count):
                 zone_start_x = current_x
                 
@@ -160,6 +163,12 @@ class HighwayWithObstaclesEnv(HighwayEnv):
                 for closure_step in range(num_lanes_to_close):
                     current_lane_count = total_lanes - closure_step
                     next_lane_count = current_lane_count - 1
+                    closing_lane_idx = current_lane_count - 1  # The lane that is closing
+                    
+                    # Store obstacle position for the closing lane (at the start of this segment)
+                    # The closing lane ends at current_x (where this segment begins)
+                    y_pos_closing = closing_lane_idx * lane_width
+                    obstacle_positions.append([current_x, y_pos_closing])
                     
                     # Continuing lanes go straight
                     for lane_idx in range(next_lane_count):
@@ -293,6 +302,10 @@ class HighwayWithObstaclesEnv(HighwayEnv):
             np_random=self.np_random,
             record_history=self.config["show_trajectories"],
         )
+        
+        # Add obstacles at the end of each closing lane to force merging vehicles to yield
+        for obstacle_pos in obstacle_positions:
+            self.road.objects.append(Obstacle(self.road, obstacle_pos))
 
     def _is_in_construction_zone(self, longitudinal_pos: float) -> bool:
         """
