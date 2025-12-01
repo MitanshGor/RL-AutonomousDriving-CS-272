@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(67000), callback=eval_callback)
+        model.learn(total_timesteps=int(100000), callback=eval_callback)
         model.save("highway_ppo/model")
 
         x, y = ts2xy(load_results(log_dir), 'timesteps')
@@ -62,6 +62,13 @@ if __name__ == "__main__":
         plt.xlabel('Timesteps')
         plt.ylabel('Episode Reward')
         plt.title('PPO Merge Env Learning Curve')
+        plt.show()
+
+        rewards, lengths = evaluate_policy(model, env, n_eval_episodes=100, return_episode_rewards=True)
+        plt.plot(rewards)
+        plt.xlabel('Test Episode')
+        plt.ylabel('Reward')
+        plt.title('PPO Merge Env Performance Episodes')
         plt.show()
 
     else:
@@ -101,18 +108,3 @@ if __name__ == "__main__":
 
     print(returns)
     env.close()
-
-'''
-returns.append(ret)
-            if (i+1) % 10 == 0:
-                print(len(returns))
-                avgReturns.append(sum(returns) / 10)
-                returns = []
-
-        import matplotlib.pyplot as plt
-        plt.plot(range(10, self.total_epi+1, 10), avgReturns)
-        plt.xlabel('Number of Runs')
-        plt.ylabel('Reward')
-        plt.title('Double Q Learning Avg Reward Every 10 Episodes')
-        plt.show()
-'''
