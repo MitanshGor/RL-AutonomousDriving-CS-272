@@ -43,34 +43,32 @@ model = PPO(
     'MlpPolicy',
     env,
     policy_kwargs=dict(net_arch=[256,256,256]),
-    n_steps=2048, # Added n_steps for SB3 PPO
+    n_steps=2048, 
     batch_size=64,
     n_epochs=20,
     gamma=0.99,
     ent_coef=0.01,
     learning_rate=3e-4,
-    # kl_coef=1e-1, # Removed, specific to custom PPO
-    # dual_clip=2,  # Removed, specific to custom PPO
     verbose=1,
     tensorboard_log=log_dir,
-    device='cuda'
+    device='cpu'
 )
 
 # Checkpoint callback - saves model periodically
 eval_callback = EvalCallback(
     env,
-    best_model_save_path='highway_ppo/model/',
+    best_model_save_path='group10_custom_env_results/',
     log_path='./ppo_eval/',
     eval_freq=10000
 )
 
 print("✓ Callbacks configured!")
 
-model_path = "highway_ppo/model/best_model.zip"
+model_path = "group10_custom_env_results/best_model.zip"
 
 if train:
     model.learn(total_timesteps=int(200000), callback=eval_callback)
-    model.save("highway_ppo/model/")
+    model.save("group10_custom_env_results/")
 else:
     if os.path.exists(model_path):
         model = PPO.load(model_path, env=env)
@@ -86,7 +84,7 @@ else:
 model = PPO.load(model_path, env=env)
 
 env = RecordVideo(
-    env, video_folder="highway_ppo/videos", episode_trigger=lambda e: True
+    env, video_folder="group10_custom_env_results/videos", episode_trigger=lambda e: True
 )
 env.unwrapped.config["simulation_frequency"] = 15  # Higher FPS for rendering
 env.unwrapped.set_record_video_wrapper(env)

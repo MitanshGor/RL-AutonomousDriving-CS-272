@@ -39,25 +39,17 @@ Each DRL model must be trained and evaluated under **two different observation t
 - **LidarObservation**
 - **GrayscaleObservation**
 
-Reference: [Observation Types Documentation](https://highway-env.farama.org/)
-
 #### Evaluation
-For each environment and observation setup, plot:
 1. **The learning curve** (Mean episodic training reward (return) vs. training episodes).
 2. **The performance test result** of a trained model without exploration (A violin plot: Mean episodic training reward (return) for 500 episodes).
 
 **Total plots:** 3 environments × 2 observation types × 2 plots = **12 plots total**
 
 ---
-
-## Task 2: Design and Evaluation of a Custom Environment
-
 ### Requirements
 
 #### Environment Design
 - Create a new custom highway-env environment to introduce a new driving scenario.
-- Custom env documentation: [HighwayEnv Custom Environments](https://highway-env.farama.org/)
-- You may create the new environment by:
   - Adjusting the reward function to encourage a different driving behavior (e.g., safe lane changing, slower driving in a narrow street).
   - Altering the road configuration (e.g., roundabout, curved road, multi-lane junction, new obstacles).
 
@@ -70,15 +62,10 @@ Train your DRL agent on both:
 1. Your own custom environment.
 2. The environment created by the other team.
 
-For each environment, provide:
 1. The learning curve.
 2. The performance test result.
 
 **Total plots:** 2 environments × 2 plots = **4 plots total**
-
----
-
-## Submission Guidelines
 
 ### Source Code and Artifacts
 Submit your:
@@ -102,7 +89,6 @@ Create a presentation based on the following items:
 8. **Task 2b: DRL Design choices**
 9. **Task 2b: Results on the other team's custom env**
 10. **Appendix slides:**
-    - 12 + 4 plots with clear labeling (see the following section about the experiment IDs.)
 
 **Presentation Dates:** December 1 and 3 during the class. **(This is required to receive a passing grade.)**
 
@@ -130,25 +116,15 @@ Whenever you save files (python code, trained model, tensorboard data file, and 
 | 10 | Intersection | LidarObs | performance test |
 | 11 | Intersection | GrayscaleObs | learning curve |
 | 12 | Intersection | GrayscaleObs | performance test |
-| 13 | your custom | as defined by you | learning curve |
-| 14 | your custom | as defined by you | performance test |
-| 15 | other team's custom | as defined by the other team | learning curve |
-| 16 | other team's custom | as defined by the other team | performance test |
-
 ### File Naming Convention
 - Code: `experiment_{ID}_train.py`, `experiment_{ID}_eval.py`
 - Models: `model_{ID}_*.pkl` or `model_{ID}_*.zip` (saved in `models/` directory)
-- Plots: `plot_{ID}_learning_curve.png`, `plot_{ID}_performance_test.png` (saved in `plots/` directory)
 - TensorBoard: Save logs in `logs/experiment_{ID}/`
 - Results: Evaluation metrics and results (saved in `results/` directory)
 
 **Note:** The project automatically creates `models/`, `logs/`, `plots/`, and `results/` directories when you run training scripts. These directories are included in `.gitignore` to avoid committing large files.
 
 ---
-
-## RL Algorithm Setup
-
-### Ready-to-Use Training Scripts
 
 The project includes ready-to-use training scripts:
 
