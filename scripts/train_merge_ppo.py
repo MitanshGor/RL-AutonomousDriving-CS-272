@@ -19,25 +19,30 @@ if __name__ == "__main__":
     log_dir = './ppo_logs/'
     os.makedirs(log_dir, exist_ok=True)
 
-    env = gym.make('merge-v0', 
+    env = gym.make('intersection-v0', 
                    render_mode='rgb_array',
-                   config={
-                       'observation': {
-                           'type': 'LidarObservation',
-                       },
-                   })
+                   config = {
+                        "observation": {
+                            "type": "GrayscaleObservation",
+                            "observation_shape": (128, 64),
+                            "stack_size": 4,
+                            "weights": [0.2989, 0.5870, 0.1140],  # weights for RGB conversion
+                            "scaling": 1.75,
+                        },
+                        "policy_frequency": 2
+                    })
     env = Monitor(env, log_dir)
     env.reset()
 
     #vec_env = make_vec_env('merge-v0', n_envs=4)
-    model = PPO('MlpPolicy',
+    model = PPO('CnnPolicy',
                 env,
                 policy_kwargs=dict(net_arch=[256,256,256]),
-                batch_size=64,
+                batch_size=256,
                 n_epochs=20,
                 gamma=0.99,
-                ent_coef=0.01,
-                learning_rate=3e-4,
+                ent_coef=0.1,
+                learning_rate=1e-4,
                 kl_coef=1e-1,
                 dual_clip=2,
                 verbose=1,
@@ -45,30 +50,31 @@ if __name__ == "__main__":
     
     eval_callback = EvalCallback(
             env,
-            best_model_save_path='highway_ppo/model/',
+            best_model_save_path='intersection_best_model/best_model/',
             log_path='./ppo_eval/',
             eval_freq=10000
         )
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(50000), callback=eval_callback)
-        model.save("highway_ppo/model")
+        model.learn(total_timesteps=int(100_000), callback=eval_callback, progress_bar=True)
+        model.save("intersection_ppo/model")
 
         x, y = ts2xy(load_results(log_dir), 'timesteps')
         y = np.convolve(y, np.ones(1000)/1000, mode='valid')
         x = x[:len(y)]
         plt.plot(x,y)
         plt.xlabel('Timesteps')
-        plt.ylabel('Episode Reward')
-        plt.title('PPO Merge Env Learning Curve')
+        plt.ylabel('Reward')
+        plt.title('PPO Intersection Grayscale Env Learning Curve')
+        plt.savefig(log_dir+'plots/ID11_intersection_grayscale_learning_curve.png')
         plt.show()
 
-        rewards, lengths = evaluate_policy(model, env, n_eval_episodes=100, return_episode_rewards=True)
-        plt.plot(rewards)
-        plt.xlabel('Test Episode')
+        rewards, lengths = evaluate_policy(model, env, n_eval_episodes=500, return_episode_rewards=True)
+        plt.violinplot(rewards, showmeans=True)
         plt.ylabel('Reward')
-        plt.title('PPO Merge Env Performance Episodes')
+        plt.title('PPO Intersection Grayscale Env Performance Episodes')
+        plt.savefig(log_dir+'plots/ID12_intersection_grayscale_performance_test.png')
         plt.show()
 
     else:
