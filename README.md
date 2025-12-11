@@ -32,6 +32,9 @@ This project implements deep reinforcement learning (DRL) agents for autonomous 
 
 The project extends the [HighwayEnv](https://highway-env.farama.org/) framework built on Gymnasium.
 
+To access the results of our models that were trained on the custom environments (group 9 and 10) as well as the three 
+assigned environments we have uploaded them in our google drive [LINK] (https://drive.google.com/drive/folders/15DMxCWwl7r9NFuZpTp2Tb75Pj4PJxZXR?usp=drive_link)
+
 ---
 
 ## Project Structure
