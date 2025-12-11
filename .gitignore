@@ -117,3 +117,13 @@ dmypy.json
 
 # Profiling data
 .prof
+highway_ppo/videos/rl-video-episode-0.mp4
+highway_ppo/videos/rl-video-episode-1.mp4
+highway_ppo/videos/rl-video-episode-2.mp4
+highway_ppo/videos/rl-video-episode-3.mp4
+highway_ppo/videos/rl-video-episode-4.mp4
+highway_ppo/videos/rl-video-episode-5.mp4
+highway_ppo/videos/rl-video-episode-6.mp4
+highway_ppo/videos/rl-video-episode-7.mp4
+highway_ppo/videos/rl-video-episode-8.mp4
+highway_ppo/videos/rl-video-episode-9.mp4
