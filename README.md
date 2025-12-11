@@ -379,10 +379,13 @@ perharps the environment was not registered (but should exist in the __init__.py
 import gymnasium as gym
 import highway_env  # This import registers the environment
 
-gym.register(
-    id='highway-with-obstacles-v0',
-    entry_point='highway_env.envs:HighwayWithObstaclesEnv',
-)
+# Importing the package registers the bundled environments (including
+# `highway-with-obstacles-v0`). If you still get a "not found" error,
+# make sure your PYTHONPATH includes the project root and that
+# `highway_env/__init__.py` is importable.
+
+# Example: create the environment after importing the package
+env = gym.make("highway-with-obstacles-v0")
 ```
 
 ### Rendering Issues

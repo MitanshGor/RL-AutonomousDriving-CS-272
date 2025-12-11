@@ -150,33 +150,43 @@ The training script includes TODO comments for:
 
 ### Project Setup
 
-This custom environment is part of the RL-AutonomousDriving-CS-272 project. To use it:
+This custom environment is part of the RL-AutonomousDriving-CS-272 project and is
+available at `highway_env/envs/highway_with_obstacles_env.py`.
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+```
 
-# Use the environment wrapper
-from src import HighwayEnvRunner
+### Quick usage example
 
-# Create environment with config
-env = HighwayEnvRunner('highway', use_config=True)
+```python
+import gymnasium as gym
+import highway_env  # registers bundled environments
+
+# Create the construction-zone environment (registered id)
+env = gym.make('highway-with-obstacles-v0', render_mode='rgb_array')
+env.unwrapped.config.update({
+  "construction_zones_count": 2,
+  "construction_zone_length": 150,
+  "construction_zone_side": "random",
+})
+obs, info = env.reset()
 ```
 
 ### Custom Environment Implementation
 
-To implement this custom environment in highway-env:
+To implement or test this custom environment in the upstream HighwayEnv package (optional):
 
 ```bash
 git clone https://github.com/Farama-Foundation/HighwayEnv.git
 cd HighwayEnv
 pip install -e .
 
-# Add your custom env file
-cp custom_envs/construction_zone_env.py highway_env/envs/
-
-# Register and test
-python -m highway_env.scripts.play --env highway-construction-zone-v0
+# This project already includes the custom environment in
+# `highway_env/envs/highway_with_obstacles_env.py` and registers it as
+# `highway-with-obstacles-v0`. To test it with the HighwayEnv play script:
+python -m highway_env.scripts.play --env highway-with-obstacles-v0
 ```
 
 **Note:** The `pip install -e .` command above is for installing the HighwayEnv package itself, not this project. This project does not require package installation - simply install dependencies with `pip install -r requirements.txt`.
